@@ -1,0 +1,21 @@
+[package]
+name = "rs_trigger"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+uuid = { version = "1.8.0", features = ["v4", "fast-rng", "macro-diagnostics"] }
+axum = "0.7.4"
+tokio = { version = "1.0", features = ["full"] }
+tower-layer = "0.3.2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = [
+    "fmt",
+    "ansi",
+    "env-filter",
+] }
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"
+reqwest = "0.12.4"
