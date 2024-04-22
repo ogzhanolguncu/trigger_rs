@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use axum::{
     extract::Query,
     http::{HeaderMap, StatusCode},
@@ -8,9 +10,16 @@ use reqwest::{Client, Error};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tracing::info;
+use tracing_subscriber::field::debug;
 use uuid::Uuid;
 
-use crate::trigger_delay::TriggerTime;
+use tokio::{task, time};
+use tokio::time::{Duration, sleep};
+use cron::Schedule;
+
+use tokio_cron_scheduler::{Job, JobScheduler, JobSchedulerError};
+
+use crate::trigger_delay::{self, TriggerTime};
 use crate::trigger_headers::TriggerHeader;
 
 #[derive(Deserialize)]
@@ -35,7 +44,9 @@ pub async fn publish(
     }
 
     let TriggerHeader {
+        trigger_method,
         trigger_delay,
+        trigger_cron,
         content_type,
         forwarded_headers,
     } = TriggerHeader::process_headers(headers);
@@ -47,6 +58,33 @@ pub async fn publish(
     Right now, our publish only allows json as a payload. I'll extend this in the future.
     Implement scheduling logic here
     */
+    let  scheduler = JobScheduler::new().await.unwrap();
+
+    task::spawn(async move {
+        if let Some(duration) = trigger_duration {
+            scheduler.add(
+                Job::new_one_shot(duration, |_uuid, _l| {
+                    println!("I only run once");
+                }).unwrap()
+            ).await.unwrap();
+        } else if let Some( cron) = trigger_cron  {
+            scheduler.add(
+                Job::new_async(cron.as_str(), move |uuid, mut l| {
+                    Box::pin(async move {
+                        tracing::debug!("RUN: {:?}", uuid);
+                        let next_tick = l.next_tick_for_job(uuid).await;
+                        match next_tick {
+                            Ok(Some(ts)) => tracing::info!("Next time for  job is {:?}", ts),
+                            _ => tracing::debug!("Could not get next tick for  job"),
+                        }
+                    })
+                }).unwrap()
+            ).await.unwrap();
+        }
+
+        scheduler.start().await.unwrap();
+    });
+
 
     Ok(Json(json!({"messageId": message_id})))
 }
@@ -57,6 +95,8 @@ async fn check_validity_of_url(url: &str) -> Result<bool, Error> {
 
     Ok(resp.status().is_success())
 }
+
+
 
 #[cfg(test)]
 mod tests {
