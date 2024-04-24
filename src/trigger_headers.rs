@@ -5,7 +5,7 @@ use axum::http::{HeaderMap, HeaderName, HeaderValue};
 const TRIGGER_PREFIX: &str = "trigger-forward-";
 
 #[derive(Debug)]
-pub enum Method{
+pub enum Method {
     Get,
     Post,
 }
@@ -44,7 +44,7 @@ impl TriggerHeader {
                         "POST" => Some(Method::Post),
                         _ => Some(Method::Post), // If the method is not GET or POST, default to POST
                     }
-                },
+                }
                 name if name.starts_with(TRIGGER_PREFIX) => {
                     TriggerHeader::capture_forward_headers(&mut parsed_headers, name, value_str)
                 }

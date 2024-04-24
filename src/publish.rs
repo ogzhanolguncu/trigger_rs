@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, sync::Arc};
 
 use axum::{
     extract::Query,
@@ -6,20 +6,17 @@ use axum::{
     response::IntoResponse,
     Json,
 };
+
 use reqwest::{Client, Error};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tracing::info;
-use tracing_subscriber::field::debug;
 use uuid::Uuid;
 
 use tokio::{task, time};
-use tokio::time::{Duration, sleep};
-use cron::Schedule;
 
-use tokio_cron_scheduler::{Job, JobScheduler, JobSchedulerError};
-
-use crate::trigger_delay::{self, TriggerTime};
+use crate::trigger_cron::calculate_next_trigger_time_cron;
+use crate::trigger_delay::TriggerTime;
 use crate::trigger_headers::TriggerHeader;
 
 #[derive(Deserialize)]
@@ -53,38 +50,49 @@ pub async fn publish(
     let trigger_duration = TriggerTime::from_string(trigger_delay);
     let trigger_body = payload;
 
+    let endpoint = Arc::new(query.endpoint.clone());
     /*
     Note:
     Right now, our publish only allows json as a payload. I'll extend this in the future.
     Implement scheduling logic here
     */
-    let  scheduler = JobScheduler::new().await.unwrap();
 
     task::spawn(async move {
-        if let Some(duration) = trigger_duration {
-            scheduler.add(
-                Job::new_one_shot(duration, |_uuid, _l| {
-                    println!("I only run once");
-                }).unwrap()
-            ).await.unwrap();
-        } else if let Some( cron) = trigger_cron  {
-            scheduler.add(
-                Job::new_async(cron.as_str(), move |uuid, mut l| {
-                    Box::pin(async move {
-                        tracing::debug!("RUN: {:?}", uuid);
-                        let next_tick = l.next_tick_for_job(uuid).await;
-                        match next_tick {
-                            Ok(Some(ts)) => tracing::info!("Next time for  job is {:?}", ts),
-                            _ => tracing::debug!("Could not get next tick for  job"),
-                        }
-                    })
-                }).unwrap()
-            ).await.unwrap();
+        if let Some(delay) = trigger_duration {
+            time::sleep(delay).await;
+
+            println!("I run after {:?}", delay);
+
+            let endpoint_clone = endpoint.clone(); // Clone the endpoint variable
+
+            task::spawn(async move {
+                let client = Client::new();
+
+                let response = client.post(endpoint_clone.as_str());
+
+                println!("Response: {:?}", response);
+            });
+        } else if let Some(cron) = trigger_cron {
+            loop {
+                // Clone the query variable
+                let next_trigger = calculate_next_trigger_time_cron(cron.as_str()).unwrap();
+
+                time::sleep(next_trigger.to_std().unwrap()).await;
+
+                println!("I run with cron {}", cron);
+
+                let endpoint_clone = endpoint.clone(); // Clone the endpoint variable
+
+                task::spawn(async move {
+                    let client = Client::new();
+
+                    let response = client.post(endpoint_clone.as_str());
+
+                    println!("Response: {:?}", response);
+                });
+            }
         }
-
-        scheduler.start().await.unwrap();
     });
-
 
     Ok(Json(json!({"messageId": message_id})))
 }
@@ -95,8 +103,6 @@ async fn check_validity_of_url(url: &str) -> Result<bool, Error> {
 
     Ok(resp.status().is_success())
 }
-
-
 
 #[cfg(test)]
 mod tests {
