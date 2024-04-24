@@ -63,7 +63,7 @@ pub async fn publish(
 
             println!("I run after {:?}", delay);
 
-            let endpoint_clone = endpoint.clone(); // Clone the endpoint variable
+            let endpoint_clone = endpoint.clone();
 
             task::spawn(async move {
                 let client = Client::new();
@@ -74,14 +74,13 @@ pub async fn publish(
             });
         } else if let Some(cron) = trigger_cron {
             loop {
-                // Clone the query variable
                 let next_trigger = calculate_next_trigger_time_cron(cron.as_str()).unwrap();
 
                 time::sleep(next_trigger.to_std().unwrap()).await;
 
                 println!("I run with cron {}", cron);
 
-                let endpoint_clone = endpoint.clone(); // Clone the endpoint variable
+                let endpoint_clone = endpoint.clone();
 
                 task::spawn(async move {
                     let client = Client::new();
