@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use tokio::{task, time};
 
-use crate::trigger_cron::calculate_next_trigger_time_cron;
+use crate::trigger_cron::{calculate_next_trigger_time_cron, check_validity_of_cron};
 use crate::trigger_delay::TriggerTime;
 use crate::trigger_headers::TriggerHeader;
 
@@ -49,6 +49,16 @@ pub async fn publish(
     } = TriggerHeader::process_headers(headers);
     let trigger_duration = TriggerTime::from_string(trigger_delay);
     let trigger_body = payload;
+
+    if let Some(cron) = trigger_cron.as_deref() {
+        if check_validity_of_cron(cron).is_err() {
+            let error_response = Json(json!({
+                "error": "Invalid cron expression",
+            }));
+            info!(%cron, "Returning error to the user due to malformed or invalid cron expression");
+            return Err((StatusCode::BAD_REQUEST, error_response));
+        }
+    }
 
     let endpoint = Arc::new(query.endpoint.clone());
     /*

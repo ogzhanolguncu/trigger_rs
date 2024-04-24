@@ -15,3 +15,9 @@ pub fn calculate_next_trigger_time_cron(cron: &str) -> Result<Duration, Box<dyn 
         Err("No upcoming trigger found".into())
     }
 }
+
+pub fn check_validity_of_cron(cron: &str) -> Result<(), Box<dyn Error>> {
+	Schedule::from_str(cron)?;
+
+	Ok(())
+}
