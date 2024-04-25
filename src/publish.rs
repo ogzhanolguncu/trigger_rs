@@ -71,13 +71,13 @@ pub async fn publish(
         if let Some(delay) = trigger_duration {
             time::sleep(delay).await;
 
-            println!("I run after {:?}", delay);
-
             let endpoint_clone = endpoint.clone();
 
             task::spawn(async move {
                 let client = Client::new();
 
+                info!("Delay of {:?} completed. Now proceeding to send request to endpoint {}", delay, endpoint);
+                
                 let response = client.post(endpoint_clone.as_str());
 
                 println!("Response: {:?}", response);
@@ -88,16 +88,16 @@ pub async fn publish(
 
                 time::sleep(next_trigger.to_std().unwrap()).await;
 
-                println!("I run with cron {}", cron);
-
                 let endpoint_clone = endpoint.clone();
+                let cron_clone = cron.clone();
 
                 task::spawn(async move {
                     let client = Client::new();
 
+                    info!("Cron job with expression {} completed. Now proceeding to send request to endpoint {}", cron_clone, endpoint_clone);
+
                     let response = client.post(endpoint_clone.as_str());
 
-                    println!("Response: {:?}", response);
                 });
             }
         }
