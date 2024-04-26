@@ -1,5 +1,3 @@
-use std::{str::FromStr, sync::Arc};
-
 use axum::{
     extract::Query,
     http::{HeaderMap, StatusCode},
@@ -7,17 +5,21 @@ use axum::{
     Json,
 };
 
+use chrono::Duration as TimeDelta;
+
+use crate::schedule_tasks::{start_delayed_task, Request};
+
 use reqwest::{Client, Error};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tracing::info;
 use uuid::Uuid;
 
-use tokio::{task, time};
+use tokio::task;
 
-use crate::trigger_cron::{calculate_next_trigger_time_cron, check_validity_of_cron};
 use crate::trigger_delay::TriggerTime;
 use crate::trigger_headers::TriggerHeader;
+use crate::{schedule_tasks::start_scheduler, trigger_cron::check_validity_of_cron};
 
 #[derive(Deserialize)]
 pub struct EndpointQuery {
@@ -60,7 +62,8 @@ pub async fn publish(
         }
     }
 
-    let endpoint = Arc::new(query.endpoint.clone());
+    let cron_clone = trigger_cron.clone();
+
     /*
     Note:
     Right now, our publish only allows json as a payload. I'll extend this in the future.
@@ -68,38 +71,30 @@ pub async fn publish(
     */
 
     task::spawn(async move {
-        if let Some(delay) = trigger_duration {
-            time::sleep(delay).await;
+        if let Some(cron) = cron_clone {
+            start_scheduler(
+                cron,
+                Request {
+                    endpoint: query.endpoint.clone(),
+                    headers: forwarded_headers,
+                    body: trigger_body,
+                    method: trigger_method,
+                },
+            )
+            .await;
+        } else if let Some(delay) = trigger_duration {
+            let time_delta = TimeDelta::from_std(delay).unwrap_or_else(|_| TimeDelta::seconds(0));
 
-            let endpoint_clone = endpoint.clone();
-
-            task::spawn(async move {
-                let client = Client::new();
-
-                info!("Delay of {:?} completed. Now proceeding to send request to endpoint {}", delay, endpoint);
-                
-                let response = client.post(endpoint_clone.as_str());
-
-                println!("Response: {:?}", response);
-            });
-        } else if let Some(cron) = trigger_cron {
-            loop {
-                let next_trigger = calculate_next_trigger_time_cron(cron.as_str()).unwrap();
-
-                time::sleep(next_trigger.to_std().unwrap()).await;
-
-                let endpoint_clone = endpoint.clone();
-                let cron_clone = cron.clone();
-
-                task::spawn(async move {
-                    let client = Client::new();
-
-                    info!("Cron job with expression {} completed. Now proceeding to send request to endpoint {}", cron_clone, endpoint_clone);
-
-                    let response = client.post(endpoint_clone.as_str());
-
-                });
-            }
+            start_delayed_task(
+                time_delta,
+                Request {
+                    endpoint: query.endpoint.clone(),
+                    headers: forwarded_headers,
+                    body: trigger_body,
+                    method: trigger_method,
+                },
+            )
+            .await;
         }
     });
 

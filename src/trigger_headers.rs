@@ -2,19 +2,16 @@ use std::str::FromStr;
 
 use axum::http::{HeaderMap, HeaderName, HeaderValue};
 
+use reqwest::Method;
+
 const TRIGGER_PREFIX: &str = "trigger-forward-";
 
-#[derive(Debug)]
-pub enum Method {
-    Get,
-    Post,
-}
 #[derive(Debug)]
 pub struct TriggerHeader {
     pub trigger_delay: Option<String>,
     pub content_type: Option<String>,
     pub trigger_cron: Option<String>,
-    pub trigger_method: Option<Method>,
+    pub trigger_method: Method,
     pub forwarded_headers: HeaderMap,
 }
 
@@ -23,7 +20,7 @@ impl TriggerHeader {
         let mut parsed_headers = Self {
             trigger_delay: None,
             content_type: None,
-            trigger_method: None,
+            trigger_method: Method::POST,
             trigger_cron: None,
             forwarded_headers: HeaderMap::new(),
         };
@@ -40,9 +37,9 @@ impl TriggerHeader {
                 "trigger-cron" => parsed_headers.trigger_cron = Some(value_str),
                 "trigger-method" => {
                     parsed_headers.trigger_method = match value_str.as_str() {
-                        "GET" => Some(Method::Get),
-                        "POST" => Some(Method::Post),
-                        _ => Some(Method::Post), // If the method is not GET or POST, default to POST
+                        "GET" => Method::GET,
+                        "POST" => Method::POST,
+                        _ => Method::POST, // If the method is not GET or POST, default to POST
                     }
                 }
                 name if name.starts_with(TRIGGER_PREFIX) => {

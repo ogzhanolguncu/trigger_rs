@@ -3,8 +3,10 @@ use std::{error::Error, str::FromStr};
 use chrono::{DateTime, Duration, Local, Utc};
 use cron::Schedule;
 
-pub fn calculate_next_trigger_time_cron(cron: &str) -> Result<Duration, Box<dyn Error>> {
-    let schedule = Schedule::from_str(cron)?;
+use std::sync::Arc;
+
+pub fn calculate_next_trigger_time_cron(cron: String) -> Result<Duration, Box<dyn Error>> {
+    let schedule = Schedule::from_str(&cron)?;
     let now = Utc::now();
 
     if let Some(next) = schedule.upcoming(Utc).take(1).next() {
@@ -17,7 +19,7 @@ pub fn calculate_next_trigger_time_cron(cron: &str) -> Result<Duration, Box<dyn 
 }
 
 pub fn check_validity_of_cron(cron: &str) -> Result<(), Box<dyn Error>> {
-	Schedule::from_str(cron)?;
+    Schedule::from_str(cron)?;
 
-	Ok(())
+    Ok(())
 }

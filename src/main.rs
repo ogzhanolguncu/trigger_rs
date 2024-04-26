@@ -1,4 +1,5 @@
 mod publish;
+mod schedule_tasks;
 mod trigger_cron;
 mod trigger_delay;
 mod trigger_headers;
