@@ -4,7 +4,9 @@ use reqwest::{Body, Client, Error, Method, Response};
 use serde_json::Value;
 use std::sync::Arc;
 use tokio::{task, time};
-use tracing::warn;
+
+
+use tracing::{info, warn};
 
 use crate::{trigger_cron::calculate_next_trigger_time_cron, trigger_headers};
 
@@ -16,18 +18,20 @@ pub struct Request {
     pub method: Method,
 }
 
-pub async fn start_scheduler(trigger_cron: String, trigger_request: Request) -> Result<(), Error> {
+pub async fn start_scheduler(trigger_cron: String, trigger_request: Request) {
     println!("Starting scheduler");
 
-    // let trigger_clone = Arc::new(trigger_cron);
+
     loop {
-        let cron = trigger_cron.to_owned();
+        let cron = trigger_cron.clone();
         let request = trigger_request.clone();
-        if let Ok(next) = calculate_next_trigger_time_cron(cron) {
+
+        if let Ok(next) = calculate_next_trigger_time_cron(cron.to_owned()) {
             if let Ok(duration) = next.to_std() {
                 time::sleep(duration).await;
 
-                task::spawn(async { start_request(request) });
+                info!("Starting request, next trigger time: {:?}", next);
+                task::spawn(async move { start_request(request).await });
             } else {
                 warn!("Error converting chrono duration to std duration");
             }
