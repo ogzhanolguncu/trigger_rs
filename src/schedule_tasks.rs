@@ -45,7 +45,7 @@ pub async fn start_delayed_task(delay: Duration, trigger_request: Request) -> Re
         .unwrap_or_else(|_| std::time::Duration::from_secs(0));
     time::sleep(std_duration).await;
 
-    return start_request(trigger_request).await;
+    start_request(trigger_request).await
 }
 
 pub async fn start_request(trigger_request: Request) -> Result<Response> {
