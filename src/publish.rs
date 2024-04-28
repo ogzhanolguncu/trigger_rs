@@ -122,4 +122,37 @@ mod tests {
         let url = "localhost:666";
         assert!(check_validity_of_url(url).await.is_err())
     }
+
+    #[tokio::test]
+    async fn should_generate_message_id() {
+        let query = Query(EndpointQuery {
+            endpoint: "https://faxr.requestcatcher.com/test".to_string(),
+        });
+        let headers = HeaderMap::new();
+        let payload = Json(json!({"key": "value"}));
+
+        let response = publish(query, headers, payload).await;
+
+        match response {
+            Ok(data) => {
+                println!("{:?}", data);
+                assert!(data.0["messageId"].as_str().is_some());
+            }
+            Err(_) => {
+                panic!("Publish operation failed");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn should_generate_request_correctly(){
+        let request = Request {
+            endpoint: "https://faxr.requestcatcher.com/test".to_string(),
+            headers: HeaderMap::new(),
+            body: json!({"key": "value"}),
+            method: reqwest::Method::GET,
+        };
+
+        
+    }
 }

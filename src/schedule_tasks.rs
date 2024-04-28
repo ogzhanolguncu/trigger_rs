@@ -61,3 +61,29 @@ pub async fn start_request(trigger_request: Request) -> Result<Response> {
         .send()
         .await?)
 }
+
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn should_generate_request_correctly(){
+        let endpoint = "https://faxr.requestcatcher.com/test".to_string();
+
+        let request = Request {
+            endpoint: endpoint.clone(),
+            headers: HeaderMap::new(),
+            body: json!({"key": "value"}),
+            method: reqwest::Method::GET,
+        };
+
+        let response = start_request(request).await.unwrap();
+
+        assert_eq!(response.status(), 200);
+
+        assert_eq!(response.url().to_string(), endpoint);
+    }
+}
