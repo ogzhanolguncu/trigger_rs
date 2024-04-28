@@ -69,32 +69,33 @@ pub async fn publish(
     Right now, our publish only allows json as a payload. I'll extend this in the future.
     Implement scheduling logic here
     */
-task::spawn(async move {
-    if let Some(cron) = cron_clone {
-        println!("Starting scheduler");
-        start_scheduler(
-            cron,
-            Request {
-                endpoint: query.endpoint.clone(),
-                headers: forwarded_headers,
-                body: trigger_body,
-                method: trigger_method,
-            }
-        ).await;
-    } else if let Some(delay) = trigger_duration {
-        let time_delta = TimeDelta::from_std(delay).unwrap_or_else(|_| TimeDelta::seconds(0));
+    task::spawn(async move {
+        if let Some(cron) = cron_clone {
+            let _ = start_scheduler(
+                cron,
+                Request {
+                    endpoint: query.endpoint.clone(),
+                    headers: forwarded_headers,
+                    body: trigger_body,
+                    method: trigger_method,
+                },
+            )
+            .await;
+        } else if let Some(delay) = trigger_duration {
+            let time_delta = TimeDelta::from_std(delay).unwrap_or_else(|_| TimeDelta::seconds(0));
 
-         start_delayed_task(
-            time_delta,
-            Request {
-                endpoint: query.endpoint.clone(),
-                headers: forwarded_headers,
-                body: trigger_body,
-                method: trigger_method,
-            }
-        ).await;
-    }
-});
+            let _ = start_delayed_task(
+                time_delta,
+                Request {
+                    endpoint: query.endpoint.clone(),
+                    headers: forwarded_headers,
+                    body: trigger_body,
+                    method: trigger_method,
+                },
+            )
+            .await;
+        }
+    });
 
     Ok(Json(json!({"messageId": message_id})))
 }

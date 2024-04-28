@@ -1,11 +1,12 @@
-use std::{error::Error, str::FromStr};
+use std::str::FromStr;
 
-use chrono::{DateTime, Duration, Local, Utc};
+use anyhow::{bail, Context, Result};
+use chrono::{Duration, Utc};
 use cron::Schedule;
 
-use std::sync::Arc;
+use crate::errors::CronError;
 
-pub fn calculate_next_trigger_time_cron(cron: String) -> Result<Duration, Box<dyn Error>> {
+pub fn calculate_next_trigger_time_cron(cron: String) -> Result<Duration> {
     let schedule = Schedule::from_str(&cron)?;
     let now = Utc::now();
 
@@ -14,12 +15,12 @@ pub fn calculate_next_trigger_time_cron(cron: String) -> Result<Duration, Box<dy
 
         Ok(Duration::milliseconds(time_until_next.num_milliseconds()))
     } else {
-        Err("No upcoming trigger found".into())
+        bail!(CronError::NoUpcomingTrigger)
     }
 }
 
-pub fn check_validity_of_cron(cron: &str) -> Result<(), Box<dyn Error>> {
-    Schedule::from_str(cron)?;
+pub fn check_validity_of_cron(cron: &str) -> Result<()> {
+    Schedule::from_str(cron).with_context(|| CronError::InvalidCron(cron.to_string()))?;
 
     Ok(())
 }

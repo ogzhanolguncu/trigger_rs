@@ -1,3 +1,4 @@
+mod errors;
 mod publish;
 mod schedule_tasks;
 mod trigger_cron;
