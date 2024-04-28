@@ -1,12 +1,13 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, Error};
 use axum::http::HeaderMap;
 use chrono::Duration;
 use reqwest::{Body, Client, Method, Response};
 use serde_json::Value;
-
+use tokio::time::sleep;
 use tokio::{task, time};
 
-use tracing::info;
+use crate::utils::format_duration;
+use tracing::{info, error};
 
 use crate::trigger_cron::calculate_next_trigger_time_cron;
 
@@ -48,19 +49,48 @@ pub async fn start_delayed_task(delay: Duration, trigger_request: Request) -> Re
     start_request(trigger_request).await
 }
 
-pub async fn start_request(trigger_request: Request) -> Result<Response> {
+
+
+pub async fn start_request(trigger_request: Request) -> Result<Response, Error> {
     let client = Client::new();
 
-    let trigger_body_string = serde_json::to_string(&trigger_request.body).unwrap();
-    let trigger_body = Body::from(trigger_body_string);
+    let mut attempts = 0;
+    let max_attempts = 5; 
+    let base_delay = Duration::seconds(1);
 
-    Ok(client
-        .request(trigger_request.method, trigger_request.endpoint)
-        .headers(trigger_request.headers)
-        .body(trigger_body)
-        .send()
-        .await?)
+    loop {
+        let trigger_body_string = serde_json::to_string(&trigger_request.body).unwrap();
+        let trigger_body = Body::from(trigger_body_string);
+
+        let response = client
+            .request(trigger_request.method.clone(), trigger_request.endpoint.clone())
+            .headers(trigger_request.headers.clone())
+            .body(trigger_body)
+            .send()
+            .await;
+
+        match response {
+            Ok(resp) => return Ok(resp),
+            Err(_) if attempts < max_attempts => {
+
+                let delay_secs = f64::exp(2.5 * (attempts as f64)).min(86400.0);
+                let duration = Duration::seconds(delay_secs as i64);
+
+                info!("Error sending request, retrying in {} ", format_duration(duration));
+                sleep(duration.to_std().unwrap()).await;
+
+                attempts += 1;
+            },
+            Err(e) => {
+
+                error!("Error sending request: {:?}", e);
+                return Err(anyhow::Error::from(e))
+            },
+        }
+    }
 }
+
+
 
 
 #[cfg(test)]

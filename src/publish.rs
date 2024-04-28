@@ -34,13 +34,13 @@ pub async fn publish(
     info!(%query.endpoint, "Starting publish with");
     let message_id = Uuid::new_v4().to_string();
 
-    if check_validity_of_url(&query.endpoint).await.is_err() {
-        let error_response = Json(json!({
-            "error": "Invalid destination URL. Endpoint has to resolve to a valid address",
-        }));
-        info!(%query.endpoint, "Returning error to the user due to malformed or invalid endpoint");
-        return Err((StatusCode::BAD_REQUEST, error_response));
-    }
+    // if check_validity_of_url(&query.endpoint).await.is_err() {
+    //     let error_response = Json(json!({
+    //         "error": "Invalid destination URL. Endpoint has to resolve to a valid address",
+    //     }));
+    //     info!(%query.endpoint, "Returning error to the user due to malformed or invalid endpoint");
+    //     return Err((StatusCode::BAD_REQUEST, error_response));
+    // }
 
     let TriggerHeader {
         trigger_method,
@@ -153,6 +153,6 @@ mod tests {
             method: reqwest::Method::GET,
         };
 
-        
+
     }
 }

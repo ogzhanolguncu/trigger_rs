@@ -4,6 +4,8 @@ mod schedule_tasks;
 mod trigger_cron;
 mod trigger_delay;
 mod trigger_headers;
+mod trigger_request;
+mod utils;
 
 use crate::publish::publish;
 
