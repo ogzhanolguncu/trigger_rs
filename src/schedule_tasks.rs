@@ -56,7 +56,6 @@ pub async fn start_request(trigger_request: Request) -> Result<Response, Error> 
 
     let mut attempts = 0;
     let max_attempts = 5; 
-    let base_delay = Duration::seconds(1);
 
     loop {
         let trigger_body_string = serde_json::to_string(&trigger_request.body).unwrap();
