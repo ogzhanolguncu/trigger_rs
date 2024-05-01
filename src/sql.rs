@@ -17,6 +17,16 @@ pub enum TaskStatus {
 }
 
 impl TaskStatus {
+    fn sql_options() -> String {
+        use TaskStatus::*;
+        let all_statuses = vec![Created, Pending, Retry, Failed];
+        all_statuses
+            .into_iter()
+            .map(|status| format!("'{}'", status.as_str()))
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
     fn as_str(&self) -> &'static str {
         match self {
             TaskStatus::Created => "CREATED",
@@ -26,6 +36,8 @@ impl TaskStatus {
         }
     }
 }
+
+const MAX_ATTEMPTS: i32 = 5;
 
 pub async fn create_table() {
     const DB_URL: &str = "sqlite://sqlite.db";
@@ -42,17 +54,25 @@ pub async fn create_table() {
 
     let db = SqlitePool::connect(DB_URL).await.unwrap();
 
-    let result = sqlx::query(
+    let status_options = TaskStatus::sql_options();
+
+    let create_table_query = format!(
         "CREATE TABLE IF NOT EXISTS tasks (
         id TEXT PRIMARY KEY,
-        status TEXT CHECK (status IN ('CREATED', 'PENDING', 'RETRY', 'FAILED')),
+        status TEXT CHECK (status IN ({})),
         created_at TIMESTAMP,
         updated_at TIMESTAMP,
         endpoint TEXT,
         header TEXT,
         body TEXT,
-        attempts INT CHECK (attempts <= 5)
+        attempts INT CHECK (attempts <= {})
       );",
+        status_options,
+        MAX_ATTEMPTS
+    );
+
+    let result = sqlx::query(
+        &create_table_query
     )
     .execute(&db)
     .await
