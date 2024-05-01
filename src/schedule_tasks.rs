@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, Error};
+use anyhow::{Context, Error, Result};
 use axum::http::HeaderMap;
 use chrono::Duration;
 use reqwest::{Body, Client, Method, Response};
@@ -8,7 +8,7 @@ use tokio::{task, time};
 
 use crate::sql::{update_task, TaskStatus};
 use crate::utils::format_duration;
-use tracing::{info, error};
+use tracing::{error, info};
 
 use crate::trigger_cron::calculate_next_trigger_time_cron;
 
@@ -20,7 +20,11 @@ pub struct Request {
     pub method: Method,
 }
 
-pub async fn start_scheduler(message_id: &str,trigger_cron: String, trigger_request: Request) -> Result<()> {
+pub async fn start_scheduler(
+    message_id: &str,
+    trigger_cron: String,
+    trigger_request: Request,
+) -> Result<()> {
     info!("Starting scheduler");
 
     let message_id = message_id.to_owned();
@@ -42,11 +46,15 @@ pub async fn start_scheduler(message_id: &str,trigger_cron: String, trigger_requ
         time::sleep(duration).await;
 
         info!("Starting request, next trigger time: {:?}", next_tick);
-        task::spawn(async move { start_request(message_id.as_str(),request).await });
+        task::spawn(async move { start_request(message_id.as_str(), request).await });
     }
 }
 
-pub async fn start_delayed_task(message_id: &str,delay: Duration, trigger_request: Request) -> Result<Response> {
+pub async fn start_delayed_task(
+    message_id: &str,
+    delay: Duration,
+    trigger_request: Request,
+) -> Result<Response> {
     update_task(message_id, TaskStatus::Pending).await;
 
     let std_duration = delay
@@ -54,23 +62,24 @@ pub async fn start_delayed_task(message_id: &str,delay: Duration, trigger_reques
         .unwrap_or_else(|_| std::time::Duration::from_secs(0));
     time::sleep(std_duration).await;
 
-    start_request(message_id,trigger_request).await
+    start_request(message_id, trigger_request).await
 }
-
-
 
 pub async fn start_request(message_id: &str, trigger_request: Request) -> Result<Response, Error> {
     let client = Client::new();
 
     let mut attempts = 0;
-    let max_attempts = 2; 
+    let max_attempts = 2;
 
     loop {
         let trigger_body_string = serde_json::to_string(&trigger_request.body).unwrap();
         let trigger_body = Body::from(trigger_body_string);
 
         let response = client
-            .request(trigger_request.method.clone(), trigger_request.endpoint.clone())
+            .request(
+                trigger_request.method.clone(),
+                trigger_request.endpoint.clone(),
+            )
             .headers(trigger_request.headers.clone())
             .body(trigger_body)
             .send()
@@ -79,28 +88,26 @@ pub async fn start_request(message_id: &str, trigger_request: Request) -> Result
         match response {
             Ok(resp) => return Ok(resp),
             Err(_) if attempts < max_attempts => {
-
                 update_task(message_id, TaskStatus::Retry).await;
                 let delay_secs = f64::exp(2.5 * (attempts as f64)).min(86400.0);
                 let duration = Duration::seconds(delay_secs as i64);
 
-                info!("Error sending request, retrying in {} ", format_duration(duration));
+                info!(
+                    "Error sending request, retrying in {} ",
+                    format_duration(duration)
+                );
                 sleep(duration.to_std().unwrap()).await;
 
                 attempts += 1;
-            },
+            }
             Err(e) => {
-
                 update_task(message_id, TaskStatus::Failed).await;
                 error!("Error sending request: {:?}", e);
-                return Err(anyhow::Error::from(e))
-            },
+                return Err(anyhow::Error::from(e));
+            }
         }
     }
 }
-
-
-
 
 #[cfg(test)]
 mod tests {
@@ -109,7 +116,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn should_generate_request_correctly(){
+    async fn should_generate_request_correctly() {
         let endpoint = "https://faxr.requestcatcher.com/test".to_string();
 
         let request = Request {
@@ -119,7 +126,7 @@ mod tests {
             method: reqwest::Method::GET,
         };
 
-        let response = start_request("1",request).await.unwrap();
+        let response = start_request("1", request).await.unwrap();
 
         assert_eq!(response.status(), 200);
 

@@ -7,7 +7,10 @@ use axum::{
 
 use chrono::Duration as TimeDelta;
 
-use crate::{schedule_tasks::{start_delayed_task, start_request, Request}, sql};
+use crate::{
+    schedule_tasks::{start_delayed_task, start_request, Request},
+    sql,
+};
 
 use reqwest::{Client, Error};
 use serde::Deserialize;
@@ -33,10 +36,16 @@ pub async fn publish(
     Json(payload): Json<Value>,
 ) -> Result<Json<Value>, impl IntoResponse> {
     info!(%query.endpoint, "Starting publish with");
-    
+
     let message_id = Uuid::new_v4().to_string();
 
-    add_task(message_id.as_str(), &query.endpoint, headers.clone(), payload.clone()).await;
+    add_task(
+        message_id.as_str(),
+        &query.endpoint,
+        headers.clone(),
+        payload.clone(),
+    )
+    .await;
 
     // if check_validity_of_url(&query.endpoint).await.is_err() {
     //     let error_response = Json(json!({
@@ -151,14 +160,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn should_generate_request_correctly(){
+    async fn should_generate_request_correctly() {
         let request = Request {
             endpoint: "https://faxr.requestcatcher.com/test".to_string(),
             headers: HeaderMap::new(),
             body: json!({"key": "value"}),
             method: reqwest::Method::GET,
         };
-
-
     }
 }

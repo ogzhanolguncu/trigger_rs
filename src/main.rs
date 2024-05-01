@@ -1,12 +1,12 @@
 mod errors;
 mod publish;
 mod schedule_tasks;
+mod sql;
 mod trigger_cron;
 mod trigger_delay;
 mod trigger_headers;
 mod trigger_request;
 mod utils;
-mod sql;
 
 use crate::publish::publish;
 
@@ -40,4 +40,3 @@ async fn main() {
 async fn hello() -> String {
     "Pong".to_string()
 }
-
