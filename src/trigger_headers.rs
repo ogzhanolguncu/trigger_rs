@@ -9,7 +9,6 @@ const TRIGGER_PREFIX: &str = "trigger-forward-";
 #[derive(Debug)]
 pub struct TriggerHeader {
     pub trigger_delay: Option<String>,
-    pub content_type: Option<String>,
     pub trigger_cron: Option<String>,
     pub trigger_method: Method,
     pub forwarded_headers: HeaderMap,
@@ -19,7 +18,6 @@ impl TriggerHeader {
     pub fn process_headers(headers: HeaderMap) -> Self {
         let mut parsed_headers = Self {
             trigger_delay: None,
-            content_type: None,
             trigger_method: Method::POST,
             trigger_cron: None,
             forwarded_headers: HeaderMap::new(),
@@ -32,7 +30,6 @@ impl TriggerHeader {
             };
 
             match name.as_str() {
-                "content-type" => parsed_headers.content_type = Some(value_str),
                 "trigger-delay" => parsed_headers.trigger_delay = Some(value_str),
                 "trigger-cron" => parsed_headers.trigger_cron = Some(value_str),
                 "trigger-method" => {
@@ -90,25 +87,6 @@ mod tests {
         let header_map = HeaderMap::new();
         assert_eq!(
             TriggerHeader::process_headers(header_map).trigger_delay,
-            None
-        )
-    }
-
-    #[test]
-    fn should_return_content_type() {
-        let mut header_map = HeaderMap::new();
-        header_map.insert("content-type", "application/json".parse().unwrap());
-        assert_eq!(
-            TriggerHeader::process_headers(header_map).content_type,
-            Some("application/json".to_string())
-        )
-    }
-
-    #[test]
-    fn should_return_none_when_content_type_is_missing() {
-        let header_map = HeaderMap::new();
-        assert_eq!(
-            TriggerHeader::process_headers(header_map).content_type,
             None
         )
     }

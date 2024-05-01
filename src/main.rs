@@ -6,8 +6,11 @@ mod trigger_delay;
 mod trigger_headers;
 mod trigger_request;
 mod utils;
+mod sql;
 
 use crate::publish::publish;
+
+use crate::sql::create_table;
 
 use axum::{
     routing::{get, post},
@@ -18,6 +21,8 @@ use tracing_subscriber;
 
 #[tokio::main]
 async fn main() {
+    create_table().await;
+
     tracing_subscriber::fmt()
         .with_ansi(true)
         .with_max_level(tracing::Level::DEBUG)
@@ -35,3 +40,4 @@ async fn main() {
 async fn hello() -> String {
     "Pong".to_string()
 }
+

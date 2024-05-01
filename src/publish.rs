@@ -7,7 +7,7 @@ use axum::{
 
 use chrono::Duration as TimeDelta;
 
-use crate::schedule_tasks::{start_delayed_task, start_request, Request};
+use crate::{schedule_tasks::{start_delayed_task, start_request, Request}, sql};
 
 use reqwest::{Client, Error};
 use serde::Deserialize;
@@ -17,6 +17,7 @@ use uuid::Uuid;
 
 use tokio::task;
 
+use crate::sql::add_task;
 use crate::trigger_delay::TriggerTime;
 use crate::trigger_headers::TriggerHeader;
 use crate::{schedule_tasks::start_scheduler, trigger_cron::check_validity_of_cron};
@@ -32,21 +33,23 @@ pub async fn publish(
     Json(payload): Json<Value>,
 ) -> Result<Json<Value>, impl IntoResponse> {
     info!(%query.endpoint, "Starting publish with");
+    
     let message_id = Uuid::new_v4().to_string();
 
-    if check_validity_of_url(&query.endpoint).await.is_err() {
-        let error_response = Json(json!({
-            "error": "Invalid destination URL. Endpoint has to resolve to a valid address",
-        }));
-        info!(%query.endpoint, "Returning error to the user due to malformed or invalid endpoint");
-        return Err((StatusCode::BAD_REQUEST, error_response));
-    }
+    add_task(message_id.as_str(), &query.endpoint, headers.clone(), payload.clone()).await;
+
+    // if check_validity_of_url(&query.endpoint).await.is_err() {
+    //     let error_response = Json(json!({
+    //         "error": "Invalid destination URL. Endpoint has to resolve to a valid address",
+    //     }));
+    //     info!(%query.endpoint, "Returning error to the user due to malformed or invalid endpoint");
+    //     return Err((StatusCode::BAD_REQUEST, error_response));
+    // }
 
     let TriggerHeader {
         trigger_method,
         trigger_delay,
         trigger_cron,
-        content_type,
         forwarded_headers,
     } = TriggerHeader::process_headers(headers);
     let trigger_duration = TriggerTime::from_string(trigger_delay);
@@ -63,6 +66,7 @@ pub async fn publish(
     }
 
     let cron_clone = trigger_cron.clone();
+    let message_id_clone = message_id.clone();
 
     /*
     Note:
@@ -72,6 +76,7 @@ pub async fn publish(
     task::spawn(async move {
         if let Some(cron) = cron_clone {
             let _ = start_scheduler(
+                message_id_clone.as_str(),
                 cron,
                 Request {
                     endpoint: query.endpoint.clone(),
@@ -85,6 +90,7 @@ pub async fn publish(
             let time_delta = TimeDelta::from_std(delay).unwrap_or_else(|_| TimeDelta::seconds(0));
 
             let _ = start_delayed_task(
+                message_id_clone.as_str(),
                 time_delta,
                 Request {
                     endpoint: query.endpoint.clone(),

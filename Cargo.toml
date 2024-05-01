@@ -23,3 +23,4 @@ cron = "0.12.1"
 chrono = "0.4.38"
 anyhow = "1.0.82"
 thiserror = "1.0.59"
+sqlx = { version = "0.7.4", features = ["runtime-tokio-native-tls", "sqlite"]}
